@@ -1,3 +1,9 @@
+# Running the application
+com.example.project.MyRestaurantApplication
+
+# Swagger
+http://localhost:8080/api/swagger-ui/swagger-ui/index.html
+
 # Task 1: Restaurant Deals API
 
 An API that returns a list of all the available restaurant deals that are active at a specified time of day.

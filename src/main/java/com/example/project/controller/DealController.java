@@ -1,9 +1,11 @@
 package com.example.project.controller;
 
+import com.example.project.dto.PeakWindowDTO;
 import com.example.project.dto.RestaurantDealDTO;
 import com.example.project.service.DealService;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -23,4 +25,10 @@ public class DealController {
     public Map<String, List<RestaurantDealDTO>> getDeals(@RequestParam String timeOfDay) {
         return Collections.singletonMap("deals", dealService.getActiveDeals(timeOfDay));
     }
+
+    @GetMapping("/peak-window")
+    public ResponseEntity<PeakWindowDTO> getPeakWindow() {
+        return ResponseEntity.ok(dealService.getPeakWindow());
+    }
+
 }

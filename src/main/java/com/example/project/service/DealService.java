@@ -1,9 +1,13 @@
 package com.example.project.service;
 
+import com.example.project.dto.PeakWindowDTO;
 import com.example.project.dto.RestaurantDealDTO;
 import com.example.project.mapper.DealMapper;
 import com.example.project.model.RawData;
 
+import com.example.project.model.RawDeal;
+import com.example.project.model.Restaurant;
+import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -14,6 +18,8 @@ import java.time.format.DateTimeFormatterBuilder;
 
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static org.apache.commons.lang3.ObjectUtils.firstNonNull;
 
 @Service
 public class DealService {
@@ -46,6 +52,75 @@ public class DealService {
                         .map(deal -> dealMapper.toDto(restaurant, deal))
                 )
                 .collect(Collectors.toList());
+    }
+
+    public PeakWindowDTO getPeakWindow() {
+        RawData response = restTemplate.getForObject(DATA_URL, RawData.class);
+        if (response == null || response.getRestaurants() == null) return null;
+
+        List<TimeEvent> events = new ArrayList<>();
+
+        for (Restaurant r : response.getRestaurants()) {
+            for (RawDeal d : r.getDeals()) {
+                // Determine effective window (Deal overrides vs Restaurant hours)
+                LocalTime open = parseTime(firstNonNull(d.getStart(), d.getOpen(), r.getOpen()));
+                LocalTime close = parseTime(firstNonNull(d.getEnd(), d.getClose(), r.getClose()));
+
+                // Add +1 for every start, -1 for every end
+                events.add(new TimeEvent(open, 1));
+                events.add(new TimeEvent(close, -1));
+            }
+        }
+
+        // Sort by time. If times are equal, process starts (+1) before ends (-1)
+        events.sort(Comparator.comparing(TimeEvent::getTime)
+                .thenComparing(e -> -e.getType()));
+
+        int maxDeals = 0;
+        int currentDeals = 0;
+        LocalTime peakStart = null;
+        LocalTime peakEnd = null;
+
+        for (int i = 0; i < events.size(); i++) {
+            TimeEvent event = events.get(i);
+            currentDeals += event.getType();
+
+            if (currentDeals > maxDeals) {
+                maxDeals = currentDeals;
+                peakStart = event.getTime();
+                // The window lasts until the next event changes the count
+                if (i + 1 < events.size()) {
+                    peakEnd = events.get(i + 1).getTime();
+                }
+            }
+        }
+
+        DateTimeFormatter displayFormatter = DateTimeFormatter.ofPattern("h:mma");
+        PeakWindowDTO dto = new PeakWindowDTO();
+        dto.setPeakTimeStart(peakStart.format(displayFormatter).toLowerCase());
+        dto.setPeakTimeEnd(peakEnd.format(displayFormatter).toLowerCase());
+
+        return dto;
+    }
+
+    @Data
+    private static class TimeEvent {
+        private final LocalTime time;
+        private final int type; // 1 for start, -1 for end
+
+        public TimeEvent(LocalTime time, int type) {
+            this.time = time;
+            this.type = type;
+        }
+
+        // Manually adding these resolves the "cannot resolve" error
+        public LocalTime getTime() {
+            return time;
+        }
+
+        public int getType() {
+            return type;
+        }
     }
 
     private boolean isWithinHours(LocalTime target, String openStr, String closeStr) {

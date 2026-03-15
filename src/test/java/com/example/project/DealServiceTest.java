@@ -1,5 +1,6 @@
 package com.example.project;
 
+import com.example.project.dto.PeakWindowDTO;
 import com.example.project.dto.RestaurantDealDTO;
 import com.example.project.mapper.DealMapper;
 import com.example.project.model.RawData;
@@ -36,7 +37,6 @@ class DealServiceTest {
     void setUp() {
         dealService = new DealService(dealMapper, restTemplate);
 
-        // 1. Define the "General" mock data for the 3pm/6pm/9pm tests
         RawData generalData = new RawData();
 
         Restaurant ozzyThai = createRestaurant("OzzyThai", "8:00am", "3:00pm", null, null);
@@ -45,8 +45,6 @@ class DealServiceTest {
 
         generalData.setRestaurants(Arrays.asList(ozzyThai, abcChicken, kekou));
 
-        // Use lenient() so tests that provide their OWN mock data (like the Peak test)
-        // don't fail due to this unused stubbing.
         lenient().when(restTemplate.getForObject(anyString(), eq(RawData.class)))
                 .thenReturn(generalData);
     }
@@ -72,7 +70,36 @@ class DealServiceTest {
         assertEquals("ABC Chicken", results.get(0).getRestaurantName());
     }
 
-    // Helper to keep setup clean
+    @Test
+    void shouldCalculatePeakWindow_5pmTo9pm() {
+         List<Restaurant> peakRestaurants = new ArrayList<>();
+        for (int i = 0; i < 7; i++) {
+            peakRestaurants.add(createRestaurant("Rest" + i, "10:00am", "10:00pm", null, null));
+        }
+
+        peakRestaurants.add(createRestaurant("PeakRest", "12:00pm", "11:00pm", "5:00pm", "9:00pm"));
+        peakRestaurants.get(7).setDeals(Arrays.asList(new RawDeal(), new RawDeal()));
+        peakRestaurants.get(7).getDeals().get(0).setStart("5:00pm");
+        peakRestaurants.get(7).getDeals().get(0).setEnd("9:00pm");
+        peakRestaurants.get(7).getDeals().get(1).setStart("5:00pm");
+        peakRestaurants.get(7).getDeals().get(1).setEnd("9:00pm");
+
+        RawData peakData = new RawData();
+        peakData.setRestaurants(peakRestaurants);
+
+
+        when(restTemplate.getForObject(anyString(), eq(RawData.class))).thenReturn(peakData);
+
+
+        PeakWindowDTO result = dealService.getPeakWindow();
+
+
+        assertNotNull(result);
+        assertEquals("5:00pm", result.getPeakTimeStart());
+        assertEquals("9:00pm", result.getPeakTimeEnd());
+    }
+
+
     private Restaurant createRestaurant(String name, String op, String cl, String dSt, String dEnd) {
         Restaurant r = new Restaurant();
         r.setName(name);

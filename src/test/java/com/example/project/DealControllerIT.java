@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -102,6 +103,18 @@ class DealControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deals", hasSize(4)))
                 .andExpect(jsonPath("$.deals[*].restaurantName", containsInAnyOrder("ABC Chicken", "ABC Chicken", "Gyoza Gyoza", "Gyoza Gyoza")));
+    }
+
+    @Test
+    void shouldReturnPeakWindow_Integration() throws Exception {
+        // Act & Assert
+        // The real DealService will now process 'fullMockData'
+        // and calculate the 5pm-9pm window itself.
+        mockMvc.perform(get("/api/v1/peak-window")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.peakTimeStart", is("6:00pm")))
+                .andExpect(jsonPath("$.peakTimeEnd", is("9:00pm")));
     }
 
     // Helper Methods
